@@ -1,0 +1,53 @@
+name: Daily Composer CSV to B2
+
+on:
+  schedule:
+    # Runs daily at 14:05 UTC (7:05am PDT / 6:05am PST).
+    - cron: '5 14 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  fetch-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install rclone
+        run: |
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Configure rclone for B2
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
+        run: |
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [b2]
+          type = b2
+          account = ${B2_KEY_ID}
+          key = ${B2_APP_KEY}
+          hard_delete = true
+          EOF
+
+      - name: Download CSV
+        env:
+          URL: ${{ secrets.CSV_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          TS=$(date -u +"%Y-%m-%d")
+          OUT="data/${{ secrets.CSV_OUTPUT_PREFIX }}_${TS}.csv"
+          curl -fSL "$URL" -o "$OUT"
+          # Optional sanity checks (fail if empty or suspiciously small)
+          test -s "$OUT"
+          [ $(wc -c < "$OUT") -gt 100 ] || (echo "File too small" && exit 1)
+
+      - name: Upload to B2 via rclone
+        env:
+          B2_BUCKET: ${{ secrets.B2_BUCKET }}
+        run: |
+          set -euo pipefail
+          # Put files under /composer/YYYY/MM/ for tidy partitioning
+          YEAR=$(date -u +"%Y")
+          MONTH=$(date -u +"%m")
+          rclone copy ./data "b2:${B2_BUCKET}/${{ secrets.CSV_OUTPUT_PREFIX }}/${YEAR}/${MONTH}/" \
+            --fast-list --ignore-existing --checksum --transfers=4 --checkers=8
