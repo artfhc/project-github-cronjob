@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p data
-          TS=$(date -u +"%Y-%m-%d")
+          TS=$(date -u +"%Y-%m-%d_%H-%M-%S")
           OUT="data/${{ secrets.CSV_OUTPUT_PREFIX }}_${TS}.csv"
           curl -fSL "$URL" -o "$OUT"
           # Optional sanity checks (fail if empty or suspiciously small)
