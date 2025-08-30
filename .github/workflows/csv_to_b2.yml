@@ -28,18 +28,38 @@ jobs:
           hard_delete = true
           EOF
 
-      - name: Download CSV
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Download and Fix CSV
         env:
           URL: ${{ secrets.CSV_URL }}
         run: |
           set -euo pipefail
           mkdir -p data
           TS=$(date -u +"%Y-%m-%d_%H-%M-%S")
+          RAW_OUT="data/raw_${{ secrets.CSV_OUTPUT_PREFIX }}_${TS}.csv"
           OUT="data/${{ secrets.CSV_OUTPUT_PREFIX }}_${TS}.csv"
-          curl -fSL "$URL" -o "$OUT"
+          
+          # Download raw CSV
+          curl -fSL "$URL" -o "$RAW_OUT"
+          
           # Optional sanity checks (fail if empty or suspiciously small)
-          test -s "$OUT"
-          [ $(wc -c < "$OUT") -gt 100 ] || (echo "File too small" && exit 1)
+          test -s "$RAW_OUT"
+          [ $(wc -c < "$RAW_OUT") -gt 100 ] || (echo "File too small" && exit 1)
+          
+          # Fix CSV newlines and validate
+          python3 fix_csv.py "$RAW_OUT" -o "$OUT" --validate
+          
+          # Clean up raw file
+          rm "$RAW_OUT"
+          
+          echo "Fixed CSV ready: $OUT"
 
       - name: Upload to B2 via rclone
         env:
