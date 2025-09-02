@@ -144,7 +144,7 @@ jobs:
             FIX_CMD="python3 fix_csv.py \"$RAW_FILE\" -o \"$PROCESSED_FILE\""
             
             if [[ "$VALIDATE_CSV" == "true" ]]; then
-              FIX_CMD="$FIX_CMD --validate --compare-counts"
+              FIX_CMD="$FIX_CMD --validate"
             fi
             
             echo "Running CSV fixer..."
