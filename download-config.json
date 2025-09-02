@@ -1,0 +1,26 @@
+{
+  "downloads": [
+    {
+      "name": "symphony-composer",
+      "csv_url_secret": "SYMPHONY_CSV_URL",
+      "b2_bucket_secret": "SYMPHONY_B2_BUCKET", 
+      "output_prefix": "composer",
+      "description": "Symphony Composer DB (Official) - daily download",
+      "fix_csv_newlines": true,
+      "validate_csv": true
+    },
+    {
+      "name": "ICDB",
+      "csv_url_secret": "ICDB_DATA_CSV_URL",
+      "b2_bucket_secret": "ICDB_DATA_B2_BUCKET",
+      "output_prefix": "icdb", 
+      "description": "https://icdb.solarwolf.xyz/ - daily download",
+      "fix_csv_newlines": true,
+      "validate_csv": true
+    }
+  ],
+  "global_settings": {
+    "schedule": "5 14 * * *",
+    "retention_days": 30
+  }
+}

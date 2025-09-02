@@ -1,14 +1,68 @@
-name: Daily Composer CSV to B2
+name: Multi-CSV Download to B2
 
 on:
   schedule:
-    # Runs daily at 14:05 UTC (7:05am PDT / 6:05am PST).
+    # Schedule is now defined in download-config.json but defaults to daily at 14:05 UTC
     - cron: '5 14 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      config_file:
+        description: 'Config file path (default: download-config.json)'
+        required: false
+        default: 'download-config.json'
+        type: string
 
 jobs:
+  load-config:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      global_config: ${{ steps.set-matrix.outputs.global_config }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Load and validate configuration
+        id: set-matrix
+        run: |
+          set -euo pipefail
+          
+          CONFIG_FILE="${{ github.event.inputs.config_file || 'download-config.json' }}"
+          echo "Loading configuration from: $CONFIG_FILE"
+          
+          # Validate config file exists
+          if [[ ! -f "$CONFIG_FILE" ]]; then
+            echo "Configuration file not found: $CONFIG_FILE"
+            exit 1
+          fi
+          
+          # Extract downloads array for matrix strategy
+          DOWNLOADS=$(jq -c '.downloads' "$CONFIG_FILE")
+          if [[ "$DOWNLOADS" == "null" || "$DOWNLOADS" == "[]" ]]; then
+            echo "No downloads configured in $CONFIG_FILE"
+            exit 1
+          fi
+          
+          # Extract global settings
+          GLOBAL_CONFIG=$(jq -c '.global_settings // {}' "$CONFIG_FILE")
+          
+          echo "Found $(echo "$DOWNLOADS" | jq length) download configurations"
+          echo "matrix={\"include\":$DOWNLOADS}" >> $GITHUB_OUTPUT
+          echo "global_config=$GLOBAL_CONFIG" >> $GITHUB_OUTPUT
+          
+          # Debug output
+          echo "Matrix configuration:"
+          echo "$DOWNLOADS" | jq '.'
+
   fetch-process-upload:
     runs-on: ubuntu-latest
+    needs: load-config
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.load-config.outputs.matrix) }}
+    
+    name: Process ${{ matrix.name }}
+    
     steps:
       # Setup Phase
       - name: Checkout repository
@@ -38,56 +92,82 @@ jobs:
           EOF
 
       # Download Phase
-      - name: Download CSV
+      - name: Download CSV - ${{ matrix.name }}
         env:
-          URL: ${{ secrets.CSV_URL }}
+          CSV_URL: ${{ secrets[matrix.csv_url_secret] }}
         run: |
           set -euo pipefail
+          
+          echo "=== DOWNLOAD PHASE: ${{ matrix.name }} ==="
+          echo "Description: ${{ matrix.description || 'No description' }}"
+          echo "URL Secret: ${{ matrix.csv_url_secret }}"
+          echo "Bucket Secret: ${{ matrix.b2_bucket_secret }}"
+          echo "Output Prefix: ${{ matrix.output_prefix }}"
+          echo "Fix CSV Newlines: ${{ matrix.fix_csv_newlines || 'false' }}"
+          echo "Validate CSV: ${{ matrix.validate_csv || 'false' }}"
+          
           mkdir -p data
           TS=$(date -u +"%Y-%m-%d_%H-%M-%S")
-          RAW_OUT="data/raw_${{ secrets.CSV_OUTPUT_PREFIX }}_${TS}.csv"
+          RAW_OUT="data/raw_${{ matrix.output_prefix }}_${TS}.csv"
           
-          echo "=== DOWNLOAD PHASE ==="
-          echo "Downloading from: $URL"
-          curl -fSL "$URL" -o "$RAW_OUT"
+          echo "Downloading from: $CSV_URL"
+          curl -fSL "$CSV_URL" -o "$RAW_OUT"
           
-          # Sanity checks
+          # Basic sanity checks
           test -s "$RAW_OUT" || (echo "Downloaded file is empty" && exit 1)
           FILE_SIZE=$(wc -c < "$RAW_OUT")
-          [ $FILE_SIZE -gt 100 ] || (echo "File too small: $FILE_SIZE bytes" && exit 1)
           
-          echo "✓ Downloaded file: $RAW_OUT (${FILE_SIZE} bytes)"
+          echo "✓ Downloaded ${{ matrix.name }}: $RAW_OUT (${FILE_SIZE} bytes)"
           echo "TIMESTAMP=$TS" >> $GITHUB_ENV
           echo "RAW_FILE=$RAW_OUT" >> $GITHUB_ENV
 
       # Process Phase
-      - name: Process CSV
+      - name: Process CSV - ${{ matrix.name }}
         run: |
           set -euo pipefail
           
-          echo "=== PROCESS PHASE ==="
+          echo "=== PROCESS PHASE: ${{ matrix.name }} ==="
           echo "Processing file: $RAW_FILE"
+          
+          # Get per-record settings
+          FIX_CSV="${{ matrix.fix_csv_newlines || 'false' }}"
+          VALIDATE_CSV="${{ matrix.validate_csv || 'false' }}"
+          
+          echo "Fix CSV newlines: $FIX_CSV"
+          echo "Validate CSV: $VALIDATE_CSV"
           
           # Generate processed filename
           PROCESSED_FILE="${RAW_FILE/raw_/}"
           
-          # Fix CSV newlines and validate
-          python3 fix_csv.py "$RAW_FILE" -o "$PROCESSED_FILE" --validate --compare-counts
+          if [[ "$FIX_CSV" == "true" ]]; then
+            # Build fix_csv.py command with conditional flags
+            FIX_CMD="python3 fix_csv.py \"$RAW_FILE\" -o \"$PROCESSED_FILE\""
+            
+            if [[ "$VALIDATE_CSV" == "true" ]]; then
+              FIX_CMD="$FIX_CMD --validate --compare-counts"
+            fi
+            
+            echo "Running CSV fixer..."
+            eval "$FIX_CMD"
+          else
+            echo "Skipping CSV fixes - moving file as-is"
+            mv "$RAW_FILE" "$PROCESSED_FILE"
+          fi
           
-          # Clean up raw file
-          rm "$RAW_FILE"
+          # Clean up raw file if it still exists
+          [[ -f "$RAW_FILE" ]] && rm "$RAW_FILE"
           
-          echo "✓ Processed file ready: $PROCESSED_FILE"
+          echo "✓ Processed ${{ matrix.name }}: $PROCESSED_FILE"
           echo "PROCESSED_FILE=$PROCESSED_FILE" >> $GITHUB_ENV
 
       # Upload Phase  
-      - name: Upload to B2
+      - name: Upload to B2 - ${{ matrix.name }}
         env:
-          B2_BUCKET: ${{ secrets.B2_BUCKET }}
+          B2_BUCKET: ${{ secrets[matrix.b2_bucket_secret] }}
         run: |
           set -euo pipefail
           
-          echo "=== UPLOAD PHASE ==="
+          echo "=== UPLOAD PHASE: ${{ matrix.name }} ==="
           
           # Verify we have the processed file
           if [[ ! -f "$PROCESSED_FILE" ]]; then
@@ -95,12 +175,12 @@ jobs:
             exit 1
           fi
           
-          # Put files under /composer/YYYY/MM/ for tidy partitioning
+          # Put files under /prefix/YYYY/MM/ for tidy partitioning
           YEAR=$(date -u +"%Y")
           MONTH=$(date -u +"%m")
           
-          echo "Uploading to: b2:${B2_BUCKET}/${{ secrets.CSV_OUTPUT_PREFIX }}/${YEAR}/${MONTH}/"
-          rclone copy ./data "b2:${B2_BUCKET}/${{ secrets.CSV_OUTPUT_PREFIX }}/${YEAR}/${MONTH}/" \
+          echo "Uploading to: b2:${B2_BUCKET}/${{ matrix.output_prefix }}/${YEAR}/${MONTH}/"
+          rclone copy ./data "b2:${B2_BUCKET}/${{ matrix.output_prefix }}/${YEAR}/${MONTH}/" \
             --fast-list --ignore-existing --checksum --transfers=4 --checkers=8
           
-          echo "✓ Upload completed for file: $(basename $PROCESSED_FILE)"
+          echo "✓ Upload completed for ${{ matrix.name }}: $(basename $PROCESSED_FILE)"
