@@ -15,8 +15,8 @@
       "b2_bucket_secret": "ICDB_DATA_B2_BUCKET",
       "output_prefix": "icdb", 
       "description": "https://icdb.solarwolf.xyz/ - daily download",
-      "fix_csv_newlines": true,
-      "validate_csv": true
+      "fix_csv_newlines": false,
+      "validate_csv": false
     }
   ],
   "global_settings": {
