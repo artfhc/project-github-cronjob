@@ -7,9 +7,18 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  fetch-and-upload:
+  fetch-process-upload:
     runs-on: ubuntu-latest
     steps:
+      # Setup Phase
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
       - name: Install rclone
         run: |
           curl -fsSL https://rclone.org/install.sh | sudo bash
@@ -28,15 +37,8 @@ jobs:
           hard_delete = true
           EOF
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Download and Fix CSV
+      # Download Phase
+      - name: Download CSV
         env:
           URL: ${{ secrets.CSV_URL }}
         run: |
@@ -44,30 +46,61 @@ jobs:
           mkdir -p data
           TS=$(date -u +"%Y-%m-%d_%H-%M-%S")
           RAW_OUT="data/raw_${{ secrets.CSV_OUTPUT_PREFIX }}_${TS}.csv"
-          OUT="data/${{ secrets.CSV_OUTPUT_PREFIX }}_${TS}.csv"
           
-          # Download raw CSV
+          echo "=== DOWNLOAD PHASE ==="
+          echo "Downloading from: $URL"
           curl -fSL "$URL" -o "$RAW_OUT"
           
-          # Optional sanity checks (fail if empty or suspiciously small)
-          test -s "$RAW_OUT"
-          [ $(wc -c < "$RAW_OUT") -gt 100 ] || (echo "File too small" && exit 1)
+          # Sanity checks
+          test -s "$RAW_OUT" || (echo "Downloaded file is empty" && exit 1)
+          FILE_SIZE=$(wc -c < "$RAW_OUT")
+          [ $FILE_SIZE -gt 100 ] || (echo "File too small: $FILE_SIZE bytes" && exit 1)
+          
+          echo "✓ Downloaded file: $RAW_OUT (${FILE_SIZE} bytes)"
+          echo "TIMESTAMP=$TS" >> $GITHUB_ENV
+          echo "RAW_FILE=$RAW_OUT" >> $GITHUB_ENV
+
+      # Process Phase
+      - name: Process CSV
+        run: |
+          set -euo pipefail
+          
+          echo "=== PROCESS PHASE ==="
+          echo "Processing file: $RAW_FILE"
+          
+          # Generate processed filename
+          PROCESSED_FILE="${RAW_FILE/raw_/}"
           
           # Fix CSV newlines and validate
-          python3 fix_csv.py "$RAW_OUT" -o "$OUT" --validate
+          python3 fix_csv.py "$RAW_FILE" -o "$PROCESSED_FILE" --validate --compare-counts
           
           # Clean up raw file
-          rm "$RAW_OUT"
+          rm "$RAW_FILE"
           
-          echo "Fixed CSV ready: $OUT"
+          echo "✓ Processed file ready: $PROCESSED_FILE"
+          echo "PROCESSED_FILE=$PROCESSED_FILE" >> $GITHUB_ENV
 
-      - name: Upload to B2 via rclone
+      # Upload Phase  
+      - name: Upload to B2
         env:
           B2_BUCKET: ${{ secrets.B2_BUCKET }}
         run: |
           set -euo pipefail
+          
+          echo "=== UPLOAD PHASE ==="
+          
+          # Verify we have the processed file
+          if [[ ! -f "$PROCESSED_FILE" ]]; then
+            echo "Processed file not found: $PROCESSED_FILE"
+            exit 1
+          fi
+          
           # Put files under /composer/YYYY/MM/ for tidy partitioning
           YEAR=$(date -u +"%Y")
           MONTH=$(date -u +"%m")
+          
+          echo "Uploading to: b2:${B2_BUCKET}/${{ secrets.CSV_OUTPUT_PREFIX }}/${YEAR}/${MONTH}/"
           rclone copy ./data "b2:${B2_BUCKET}/${{ secrets.CSV_OUTPUT_PREFIX }}/${YEAR}/${MONTH}/" \
             --fast-list --ignore-existing --checksum --transfers=4 --checkers=8
+          
+          echo "✓ Upload completed for file: $(basename $PROCESSED_FILE)"
