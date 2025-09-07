@@ -115,9 +115,14 @@ eval "$DCE_CMD"
 
 # Upload to archive if configured
 if [ -n "${ARCHIVE_URI:-}" ] && [ -n "${RCLONE_CONFIG:-}" ]; then
-    echo "Uploading to: $ARCHIVE_URI"
-    rclone --config /root/.config/rclone/rclone.conf copy /output "$ARCHIVE_URI" --progress
-    echo "✓ Upload completed"
+    # Create timestamped subdirectory
+    TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
+    TIMESTAMPED_URI="${ARCHIVE_URI%/}/${TIMESTAMP}/"
+    
+    echo "Upload timestamp: $TIMESTAMP"
+    echo "Uploading to: $TIMESTAMPED_URI"
+    rclone --config /root/.config/rclone/rclone.conf copy /output "$TIMESTAMPED_URI" --progress
+    echo "✓ Upload completed to timestamped directory: $TIMESTAMP"
 else
     echo "Skipping upload - no archive URI or rclone config"
 fi
