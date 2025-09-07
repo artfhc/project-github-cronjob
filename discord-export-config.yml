@@ -2,8 +2,8 @@
 # This file defines Discord channels/guilds to export and their settings
 
 exports:
-  - name: "main-guild"
-    description: "Main Discord server - all channels"
+  - name: "investors-collaborative-guild"
+    description: "Investors Collaborative"
     guild_id_secret: "MAIN_GUILD_ID"
     discord_token_secret: "DISCORD_TOKEN"
     scope: "guild"  # "guild" or "channel"
@@ -13,59 +13,59 @@ exports:
     export_format: "Json"  # Json, PlainText, HtmlLight, HtmlDark, Csv
     enabled: true
     # Time range settings (optional - will use workflow input if not specified)
-    time_range: "last_7_days"  # everything, today, yesterday, last_24_hours, last_7_days, last_30_days, custom_range, custom_date
+    time_range: "last_24_hours"  # everything, today, yesterday, last_24_hours, last_7_days, last_30_days, custom_range, custom_date
     # start_date: "2024-01-01"  # Only for custom_range
     # end_date: "2024-01-31"    # Only for custom_range  
     # custom_date: "2024-01-15" # Only for custom_date
 
-  - name: "important-channel"
-    description: "Important announcements channel only"
-    guild_id_secret: "MAIN_GUILD_ID" 
-    discord_token_secret: "DISCORD_TOKEN"
-    scope: "channel"
-    channel_id_secret: "IMPORTANT_CHANNEL_ID"
-    archive_uri_secret: "IMPORTANT_ARCHIVE_URI"  # e.g. b2:mybucket/discord-important
-    rclone_config_secret: "RCLONE_CONFIG"
-    export_format: "Json"
-    enabled: true
-    # This export will use workflow input time range since none specified
+  # - name: "important-channel"
+  #   description: "Important announcements channel only"
+  #   guild_id_secret: "MAIN_GUILD_ID" 
+  #   discord_token_secret: "DISCORD_TOKEN"
+  #   scope: "channel"
+  #   channel_id_secret: "IMPORTANT_CHANNEL_ID"
+  #   archive_uri_secret: "IMPORTANT_ARCHIVE_URI"  # e.g. b2:mybucket/discord-important
+  #   rclone_config_secret: "RCLONE_CONFIG"
+  #   export_format: "Json"
+  #   enabled: true
+  #   # This export will use workflow input time range since none specified
 
-  - name: "daily-archive"
-    description: "Daily archive - only today's messages"
-    guild_id_secret: "MAIN_GUILD_ID"
-    discord_token_secret: "DISCORD_TOKEN"
-    scope: "guild"
-    channel_id_secret: ""
-    archive_uri_secret: "DAILY_ARCHIVE_URI"
-    rclone_config_secret: "RCLONE_CONFIG"
-    export_format: "Json"
-    enabled: true
-    time_range: "today"  # Always exports today's messages regardless of workflow input
+  # - name: "daily-archive"
+  #   description: "Daily archive - only today's messages"
+  #   guild_id_secret: "MAIN_GUILD_ID"
+  #   discord_token_secret: "DISCORD_TOKEN"
+  #   scope: "guild"
+  #   channel_id_secret: ""
+  #   archive_uri_secret: "DAILY_ARCHIVE_URI"
+  #   rclone_config_secret: "RCLONE_CONFIG"
+  #   export_format: "Json"
+  #   enabled: true
+  #   time_range: "today"  # Always exports today's messages regardless of workflow input
 
-  - name: "historical-data"
-    description: "Specific historical period"
-    guild_id_secret: "MAIN_GUILD_ID"
-    discord_token_secret: "DISCORD_TOKEN"
-    scope: "guild"
-    channel_id_secret: ""
-    archive_uri_secret: "HISTORICAL_ARCHIVE_URI"
-    rclone_config_secret: "RCLONE_CONFIG"
-    export_format: "Json"
-    enabled: true
-    time_range: "custom_range"
-    start_date: "2024-01-01"
-    end_date: "2024-01-31"
+  # - name: "historical-data"
+  #   description: "Specific historical period"
+  #   guild_id_secret: "MAIN_GUILD_ID"
+  #   discord_token_secret: "DISCORD_TOKEN"
+  #   scope: "guild"
+  #   channel_id_secret: ""
+  #   archive_uri_secret: "HISTORICAL_ARCHIVE_URI"
+  #   rclone_config_secret: "RCLONE_CONFIG"
+  #   export_format: "Json"
+  #   enabled: true
+  #   time_range: "custom_range"
+  #   start_date: "2024-01-01"
+  #   end_date: "2024-01-31"
 
-  - name: "secondary-server"
-    description: "Secondary Discord server"
-    guild_id_secret: "SECONDARY_GUILD_ID"
-    discord_token_secret: "DISCORD_TOKEN_SECONDARY"  # Could be different bot
-    scope: "guild"
-    channel_id_secret: ""
-    archive_uri_secret: "SECONDARY_ARCHIVE_URI"
-    rclone_config_secret: "RCLONE_CONFIG"
-    export_format: "HtmlLight"
-    enabled: false  # Disabled - won't run
+  # - name: "secondary-server"
+  #   description: "Secondary Discord server"
+  #   guild_id_secret: "SECONDARY_GUILD_ID"
+  #   discord_token_secret: "DISCORD_TOKEN_SECONDARY"  # Could be different bot
+  #   scope: "guild"
+  #   channel_id_secret: ""
+  #   archive_uri_secret: "SECONDARY_ARCHIVE_URI"
+  #   rclone_config_secret: "RCLONE_CONFIG"
+  #   export_format: "HtmlLight"
+  #   enabled: false  # Disabled - won't run
 
 global_settings:
   # Default schedule (can be overridden per export)
