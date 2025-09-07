@@ -1,0 +1,266 @@
+name: Discord Chat Export
+on:
+  # schedule:
+  #   - cron: "0 9 * * *"   # runs every day at 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      config_file:
+        description: 'Config file path (default: discord-export-config.yml)'
+        required: false
+        default: 'discord-export-config.yml'
+        type: string
+      time_range:
+        description: 'Time range to export'
+        required: true
+        default: 'everything'
+        type: choice
+        options:
+        - everything
+        - today
+        - yesterday
+        - last_24_hours
+        - last_7_days
+        - last_30_days
+        - custom_range
+        - custom_date
+      start_date:
+        description: 'Start date (YYYY-MM-DD) - for custom_range'
+        required: false
+        type: string
+      end_date:
+        description: 'End date (YYYY-MM-DD) - for custom_range'
+        required: false
+        type: string
+      custom_date:
+        description: 'Specific date (YYYY-MM-DD) - for custom_date'
+        required: false
+        type: string
+
+jobs:
+  load-config:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      global_config: ${{ steps.set-matrix.outputs.global_config }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Load and validate configuration
+        id: set-matrix
+        run: |
+          set -euo pipefail
+          
+          CONFIG_FILE="${{ github.event.inputs.config_file || 'discord-export-config.yml' }}"
+          echo "Loading configuration from: $CONFIG_FILE"
+          
+          # Validate config file exists
+          if [[ ! -f "$CONFIG_FILE" ]]; then
+            echo "Configuration file not found: $CONFIG_FILE"
+            exit 1
+          fi
+          
+          # Extract enabled exports for matrix strategy
+          EXPORTS=$(yq eval '.exports[] | select(.enabled == true)' "$CONFIG_FILE" -o=json -I=0 | jq -s .)
+          if [[ "$EXPORTS" == "[]" || "$EXPORTS" == "null" ]]; then
+            echo "No enabled exports configured in $CONFIG_FILE"
+            exit 1
+          fi
+          
+          # Extract global settings
+          GLOBAL_CONFIG=$(yq eval '.global_settings' "$CONFIG_FILE" -o=json)
+          
+          echo "Found $(echo "$EXPORTS" | jq length) enabled export configurations"
+          echo "matrix={\"include\":$EXPORTS}" >> $GITHUB_OUTPUT
+          echo "global_config=$GLOBAL_CONFIG" >> $GITHUB_OUTPUT
+          
+          # Debug output
+          echo "Matrix configuration:"
+          echo "$EXPORTS" | jq '.'
+
+  export:
+    runs-on: ubuntu-latest
+    needs: load-config
+    strategy:
+      fail-fast: ${{ fromJson(needs.load-config.outputs.global_config).fail_fast || false }}
+      matrix: ${{ fromJson(needs.load-config.outputs.matrix) }}
+    
+    name: Export ${{ matrix.name }}
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Calculate time range
+        id: time_calc
+        run: |
+          set -euo pipefail
+          
+          # Use per-export time range if specified, otherwise use workflow input
+          EXPORT_TIME_RANGE="${{ matrix.time_range || '' }}"
+          WORKFLOW_TIME_RANGE="${{ github.event.inputs.time_range || 'everything' }}"
+          
+          if [[ -n "$EXPORT_TIME_RANGE" ]]; then
+            TIME_RANGE="$EXPORT_TIME_RANGE"
+            echo "Using export-specific time range: $TIME_RANGE"
+          else
+            TIME_RANGE="$WORKFLOW_TIME_RANGE"
+            echo "Using workflow input time range: $TIME_RANGE"
+          fi
+          
+          case "$TIME_RANGE" in
+            "everything")
+              echo "Exporting all messages (no time filter)"
+              echo "after_ts=" >> $GITHUB_OUTPUT
+              echo "before_ts=" >> $GITHUB_OUTPUT
+              ;;
+            "today")
+              TODAY=$(date -u +"%Y-%m-%dT00:00:00Z")
+              TOMORROW=$(date -u -d "+1 day" +"%Y-%m-%dT00:00:00Z")
+              echo "Exporting today's messages: $TODAY to $TOMORROW"
+              echo "after_ts=$TODAY" >> $GITHUB_OUTPUT
+              echo "before_ts=$TOMORROW" >> $GITHUB_OUTPUT
+              ;;
+            "yesterday")
+              YESTERDAY=$(date -u -d "-1 day" +"%Y-%m-%dT00:00:00Z")
+              TODAY=$(date -u +"%Y-%m-%dT00:00:00Z")
+              echo "Exporting yesterday's messages: $YESTERDAY to $TODAY"
+              echo "after_ts=$YESTERDAY" >> $GITHUB_OUTPUT
+              echo "before_ts=$TODAY" >> $GITHUB_OUTPUT
+              ;;
+            "last_24_hours")
+              TWENTY_FOUR_HOURS_AGO=$(date -u -d "-24 hours" +"%Y-%m-%dT%H:%M:%SZ")
+              NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+              echo "Exporting last 24 hours: $TWENTY_FOUR_HOURS_AGO to $NOW"
+              echo "after_ts=$TWENTY_FOUR_HOURS_AGO" >> $GITHUB_OUTPUT
+              echo "before_ts=$NOW" >> $GITHUB_OUTPUT
+              ;;
+            "last_7_days")
+              SEVEN_DAYS_AGO=$(date -u -d "-7 days" +"%Y-%m-%dT00:00:00Z")
+              NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+              echo "Exporting last 7 days: $SEVEN_DAYS_AGO to $NOW"
+              echo "after_ts=$SEVEN_DAYS_AGO" >> $GITHUB_OUTPUT
+              echo "before_ts=$NOW" >> $GITHUB_OUTPUT
+              ;;
+            "last_30_days")
+              THIRTY_DAYS_AGO=$(date -u -d "-30 days" +"%Y-%m-%dT00:00:00Z")
+              NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+              echo "Exporting last 30 days: $THIRTY_DAYS_AGO to $NOW"
+              echo "after_ts=$THIRTY_DAYS_AGO" >> $GITHUB_OUTPUT
+              echo "before_ts=$NOW" >> $GITHUB_OUTPUT
+              ;;
+            "custom_range")
+              # Use export-specific dates if available, otherwise workflow inputs
+              if [[ -n "$EXPORT_TIME_RANGE" ]]; then
+                START_DATE="${{ matrix.start_date || '' }}"
+                END_DATE="${{ matrix.end_date || '' }}"
+                echo "Using export-specific custom range"
+              else
+                START_DATE="${{ github.event.inputs.start_date }}"
+                END_DATE="${{ github.event.inputs.end_date }}"
+                echo "Using workflow input custom range"
+              fi
+              
+              if [[ -z "$START_DATE" || -z "$END_DATE" ]]; then
+                echo "Error: Both start_date and end_date required for custom_range"
+                exit 1
+              fi
+              
+              START_TS="${START_DATE}T00:00:00Z"
+              END_TS="${END_DATE}T23:59:59Z"
+              echo "Exporting custom range: $START_TS to $END_TS"
+              echo "after_ts=$START_TS" >> $GITHUB_OUTPUT
+              echo "before_ts=$END_TS" >> $GITHUB_OUTPUT
+              ;;
+            "custom_date")
+              # Use export-specific date if available, otherwise workflow input
+              if [[ -n "$EXPORT_TIME_RANGE" ]]; then
+                CUSTOM_DATE="${{ matrix.custom_date || '' }}"
+                echo "Using export-specific custom date"
+              else
+                CUSTOM_DATE="${{ github.event.inputs.custom_date }}"
+                echo "Using workflow input custom date"
+              fi
+              
+              if [[ -z "$CUSTOM_DATE" ]]; then
+                echo "Error: custom_date required for custom_date option"
+                exit 1
+              fi
+              
+              START_TS="${CUSTOM_DATE}T00:00:00Z"
+              END_TS="${CUSTOM_DATE}T23:59:59Z"
+              echo "Exporting specific date: $START_TS to $END_TS"
+              echo "after_ts=$START_TS" >> $GITHUB_OUTPUT
+              echo "before_ts=$END_TS" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Error: Unknown time range option: $TIME_RANGE"
+              exit 1
+              ;;
+          esac
+
+      - name: Build Docker image
+        run: |
+          DOCKER_TAG="${{ fromJson(needs.load-config.outputs.global_config).docker_image_tag || 'dce-job:latest' }}"
+          DOCKERFILE_PATH="${{ fromJson(needs.load-config.outputs.global_config).dockerfile_path || '.' }}"
+          echo "Building Docker image: $DOCKER_TAG from $DOCKERFILE_PATH"
+          docker build -t "$DOCKER_TAG" "$DOCKERFILE_PATH"
+
+      - name: Run Discord Export - ${{ matrix.name }}
+        env:
+          DISCORD_TOKEN: ${{ secrets[matrix.discord_token_secret] }}
+          GUILD_ID: ${{ secrets[matrix.guild_id_secret] }}
+          CHANNEL_ID: ${{ secrets[matrix.channel_id_secret] }}
+          SCOPE: ${{ matrix.scope }}
+          AFTER_TS: ${{ steps.time_calc.outputs.after_ts }}
+          BEFORE_TS: ${{ steps.time_calc.outputs.before_ts }}
+          ARCHIVE_URI: ${{ secrets[matrix.archive_uri_secret] }}
+          EXPORT_FORMAT: ${{ matrix.export_format }}
+          RCLONE_CONFIG: ${{ secrets[matrix.rclone_config_secret] }}
+        run: |
+          set -euo pipefail
+          
+          echo "=== DISCORD EXPORT: ${{ matrix.name }} ==="
+          echo "Description: ${{ matrix.description }}"
+          echo "Scope: ${{ matrix.scope }}"
+          echo "Export Format: ${{ matrix.export_format }}"
+          echo "Archive URI: ${ARCHIVE_URI}"
+          
+          # Build Docker command with conditional parameters
+          DOCKER_TAG="${{ fromJson(needs.load-config.outputs.global_config).docker_image_tag || 'dce-job:latest' }}"
+          DOCKER_CMD="docker run --rm"
+          DOCKER_CMD="$DOCKER_CMD -e DISCORD_TOKEN -e GUILD_ID -e SCOPE"
+          DOCKER_CMD="$DOCKER_CMD -e ARCHIVE_URI -e EXPORT_FORMAT -e RCLONE_CONFIG"
+          
+          # Add channel ID if using channel scope
+          if [[ "${{ matrix.scope }}" == "channel" ]]; then
+            if [[ -z "$CHANNEL_ID" ]]; then
+              echo "Error: CHANNEL_ID required for channel scope"
+              exit 1
+            fi
+            DOCKER_CMD="$DOCKER_CMD -e CHANNEL_ID"
+            echo "Channel ID: $CHANNEL_ID"
+          fi
+          
+          # Add time parameters if they exist
+          if [[ -n "$AFTER_TS" ]]; then
+            DOCKER_CMD="$DOCKER_CMD -e AFTER_TS"
+            echo "After timestamp: $AFTER_TS"
+          fi
+          
+          if [[ -n "$BEFORE_TS" ]]; then
+            DOCKER_CMD="$DOCKER_CMD -e BEFORE_TS"
+            echo "Before timestamp: $BEFORE_TS"
+          fi
+          
+          DOCKER_CMD="$DOCKER_CMD $DOCKER_TAG"
+          
+          echo "Running command: $DOCKER_CMD"
+          eval "$DOCKER_CMD"
+          
+          echo "✓ Export completed for ${{ matrix.name }}"
