@@ -68,16 +68,9 @@ exports:
   #   enabled: false  # Disabled - won't run
 
 global_settings:
-  # Default schedule (can be overridden per export)
-  # schedule: "0 9 * * *"  # Daily at 9 AM UTC
-  
   # Docker image settings
   docker_image_tag: "dce-job:latest"
   dockerfile_path: "."
   
-  # Default time range options
-  default_time_range: "everything"
-  
   # Export settings
-  parallel_exports: true  # Run multiple exports simultaneously
   fail_fast: false  # Continue other exports if one fails

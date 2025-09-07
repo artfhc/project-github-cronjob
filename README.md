@@ -1,19 +1,12 @@
-# Multi-CSV Download to B2
+# GitHub Cronjob Workflows
 
-GitHub Actions workflow that downloads multiple CSV files and uploads them to Backblaze B2.
+Automated data collection workflows using GitHub Actions.
 
-## What it does
+## CSV Download Workflow
 
-1. Reads configuration from `download-config.json`
-2. Downloads CSV files from configured URLs in parallel
-3. Optionally processes CSV files (fixes newlines, validates structure)
-4. Uploads files to Backblaze B2 with date-based organization
+Downloads CSV files and uploads them to Backblaze B2.
 
-## Configuration
-
-### `download-config.json`
-
-Defines what CSV files to download and how to process them:
+### Configuration: `download-config.json`
 
 ```json
 {
@@ -23,52 +16,63 @@ Defines what CSV files to download and how to process them:
       "csv_url_secret": "SYMPHONY_CSV_URL",
       "b2_bucket_secret": "SYMPHONY_B2_BUCKET",
       "output_prefix": "composer",
-      "description": "Symphony Composer DB - daily download",
       "fix_csv_newlines": true,
       "validate_csv": true
     }
-  ],
-  "global_settings": {
-    "schedule": "5 14 * * *",
-    "retention_days": 30
-  }
+  ]
 }
 ```
 
-**Required per download:**
-- `name`: Unique identifier
-- `csv_url_secret`: GitHub secret name containing the download URL
-- `b2_bucket_secret`: GitHub secret name containing the B2 bucket name
-- `output_prefix`: File prefix for naming and B2 paths
+### Workflow: `.github/workflows/csv_to_b2.yml`
 
-**Optional per download:**
-- `description`: Human-readable description
-- `fix_csv_newlines`: Fix newlines in quoted CSV fields (default: false)
-- `validate_csv`: Validate CSV structure after processing (default: false)
+- Reads configuration from `download-config.json`
+- Downloads CSV files from configured URLs in parallel
+- Processes CSV files (fixes newlines, validates structure)
+- Uploads to B2 with path: `bucket/prefix/YYYY/MM/filename.csv`
 
-### `.github/workflows/csv_to_b2.yml`
+## Discord Export Workflow
 
-GitHub Actions workflow that:
-1. **load-config job**: Reads `download-config.json` and creates matrix strategy
-2. **fetch-process-upload job**: Runs in parallel for each configured download
-   - Downloads CSV from URL
-   - Processes CSV if enabled (fixes newlines, validates structure) 
-   - Uploads to B2 bucket with path: `bucket/prefix/YYYY/MM/filename.csv`
+Exports Discord chats and uploads them to Backblaze B2.
 
-## Setup
+### Configuration: `discord-export-config.yml`
 
-### 1. GitHub Secrets
+```yaml
+exports:
+  - name: "guild-export"
+    guild_id_secret: "GUILD_ID"
+    discord_token_secret: "DISCORD_TOKEN"
+    scope: "guild"
+    archive_uri_secret: "ARCHIVE_URI"
+    rclone_config_secret: "RCLONE_CONFIG"
+    export_format: "Json"
+    enabled: true
+    time_range: "last_24_hours"
 
-**Shared secrets:**
+global_settings:
+  docker_image_tag: "dce-job:latest"
+  fail_fast: false
+```
+
+### Workflow: `.github/workflows/discord_export.yml`
+
+- Uses DiscordChatExporter in Docker container
+- Supports guild and channel scopes
+- Time range options: everything, today, yesterday, last_24_hours, last_7_days, last_30_days
+- Uploads to B2 with timestamped directories: `bucket/YYYYMMDD_HHMMSS/`
+- Scheduled: Daily at 09:00 UTC
+
+## GitHub Secrets
+
+**B2 Storage:**
 - `B2_KEY_ID`: Backblaze B2 Key ID
 - `B2_APP_KEY`: Backblaze B2 Application Key
 
-**Per-download secrets (example):**
-- `SYMPHONY_CSV_URL`: URL to download CSV from
-- `SYMPHONY_B2_BUCKET`: Target B2 bucket name
+**CSV Downloads:**
+- `SYMPHONY_CSV_URL`: CSV download URL
+- `SYMPHONY_B2_BUCKET`: B2 bucket name
 
-### 2. Run Workflow
-
-**Scheduled:** Daily at 14:05 UTC (configured in workflow file)
-
-**Manual:** Actions tab → "Multi-CSV Download to B2" → "Run workflow"
+**Discord Exports:**
+- `DISCORD_TOKEN`: Discord bot token
+- `GUILD_ID`: Discord server ID
+- `ARCHIVE_URI`: B2 destination (e.g. `b2:bucket/path`)
+- `RCLONE_CONFIG`: Rclone configuration for B2
