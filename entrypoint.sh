@@ -14,11 +14,12 @@ echo "BEFORE_TS: ${BEFORE_TS:-'not set'}"
 # Configure rclone if RCLONE_CONFIG is provided
 if [ -n "${RCLONE_CONFIG:-}" ]; then
     echo "Configuring rclone..."
-    mkdir -p ~/.config/rclone
-    echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+    export HOME=/root
+    mkdir -p /root/.config/rclone
+    echo "$RCLONE_CONFIG" > /root/.config/rclone/rclone.conf
     
     echo "Rclone config file contents:"
-    cat ~/.config/rclone/rclone.conf
+    cat /root/.config/rclone/rclone.conf
     
     echo "Testing rclone configuration..."
     rclone config show || echo "Warning: rclone config show failed"
