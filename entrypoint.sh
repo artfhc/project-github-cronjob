@@ -49,13 +49,19 @@ else
     exit 1
 fi
 
-# Add time range filters
+# Add time range filters - convert ISO format to DCE expected format
 if [ -n "${AFTER_TS:-}" ]; then
-    DCE_CMD="$DCE_CMD --after \"$AFTER_TS\""
+    # Convert from 2025-09-06T06:45:30Z to 2025-09-06 06:45:30
+    AFTER_DCE=$(echo "$AFTER_TS" | sed 's/T/ /' | sed 's/Z$//')
+    DCE_CMD="$DCE_CMD --after \"$AFTER_DCE\""
+    echo "After timestamp (converted): $AFTER_DCE"
 fi
 
 if [ -n "${BEFORE_TS:-}" ]; then
-    DCE_CMD="$DCE_CMD --before \"$BEFORE_TS\""
+    # Convert from 2025-09-06T06:45:30Z to 2025-09-06 06:45:30
+    BEFORE_DCE=$(echo "$BEFORE_TS" | sed 's/T/ /' | sed 's/Z$//')
+    DCE_CMD="$DCE_CMD --before \"$BEFORE_DCE\""
+    echo "Before timestamp (converted): $BEFORE_DCE"
 fi
 
 # Check if DiscordChatExporter exists
@@ -73,6 +79,14 @@ fi
 # Test executable
 echo "Testing DiscordChatExporter.Cli..."
 ./DiscordChatExporter.Cli --version || echo "Warning: Could not get version"
+
+echo "=== Checking available commands and options ==="
+echo "Export command options:"
+./DiscordChatExporter.Cli export --help 2>&1 | head -20
+
+echo ""
+echo "Exportguild command options:"
+./DiscordChatExporter.Cli exportguild --help 2>&1 | head -20
 
 # Run export
 echo "Running: $DCE_CMD"
