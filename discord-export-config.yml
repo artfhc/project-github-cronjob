@@ -4,11 +4,11 @@
 exports:
   - name: "investors-collaborative-guild"
     description: "Investors Collaborative"
-    guild_id_secret: "MAIN_GUILD_ID"
+    guild_id_secret: "INVESTOR_COLLAB_GUILD_ID"
     discord_token_secret: "DISCORD_TOKEN"
     scope: "guild"  # "guild" or "channel"
     channel_id_secret: ""  # Only needed if scope is "channel"
-    archive_uri_secret: "MAIN_ARCHIVE_URI"  # e.g. b2:mybucket/discord-main
+    archive_uri_secret: "INVESTOR_COLLAB_ARCHIVE_URI"  # e.g. b2:mybucket/discord-main
     rclone_config_secret: "RCLONE_CONFIG"
     export_format: "Json"  # Json, PlainText, HtmlLight, HtmlDark, Csv
     enabled: true
