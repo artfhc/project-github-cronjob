@@ -76,8 +76,8 @@ jobs:
           GLOBAL_CONFIG=$(yq eval '.global_settings' "$CONFIG_FILE" -o=json)
           
           echo "Found $(echo "$EXPORTS" | jq length) enabled export configurations"
-          echo "matrix={\"include\":$EXPORTS}" >> $GITHUB_OUTPUT
-          echo "global_config=$GLOBAL_CONFIG" >> $GITHUB_OUTPUT
+          echo "matrix=$(echo "{\"include\":$EXPORTS}" | jq -c .)" >> $GITHUB_OUTPUT
+          echo "global_config=$(echo "$GLOBAL_CONFIG" | jq -c .)" >> $GITHUB_OUTPUT
           
           # Debug output
           echo "Matrix configuration:"
