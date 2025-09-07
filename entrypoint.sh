@@ -21,7 +21,7 @@ else
 fi
 
 # Build DiscordChatExporter command
-DCE_CMD="./DiscordChatExporter.Cli export"
+DCE_CMD="dotnet DiscordChatExporter.Cli.dll export"
 DCE_CMD="$DCE_CMD --token \"$DISCORD_TOKEN\""
 DCE_CMD="$DCE_CMD --format \"$EXPORT_FORMAT\""
 DCE_CMD="$DCE_CMD --output \"/output\""
@@ -58,12 +58,16 @@ cd /app
 echo "Contents of /app:"
 ls -la
 
-if [ ! -f "DiscordChatExporter.Cli" ]; then
-    echo "Error: DiscordChatExporter.Cli not found!"
+if [ ! -f "DiscordChatExporter.Cli.dll" ]; then
+    echo "Error: DiscordChatExporter.Cli.dll not found!"
     echo "Available files:"
     find . -name "*DiscordChatExporter*" -o -name "*Cli*"
     exit 1
 fi
+
+# Test dotnet runtime
+echo "Testing .NET runtime..."
+dotnet --version || echo "Warning: dotnet command not available"
 
 # Run export
 echo "Running: $DCE_CMD"
