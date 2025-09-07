@@ -20,24 +20,29 @@ else
     echo "Warning: No RCLONE_CONFIG provided - uploads will fail"
 fi
 
-# Build DiscordChatExporter command
-DCE_CMD="./DiscordChatExporter.Cli export"
-DCE_CMD="$DCE_CMD --token \"$DISCORD_TOKEN\""
-DCE_CMD="$DCE_CMD --format \"$EXPORT_FORMAT\""
-DCE_CMD="$DCE_CMD --output \"/output\""
-
-# Add guild or channel scope
+# Build DiscordChatExporter command based on scope
 if [ "$SCOPE" = "guild" ]; then
     if [ -z "${GUILD_ID:-}" ]; then
         echo "Error: GUILD_ID required for guild scope"
         exit 1
     fi
+    echo "Using exportguild command for guild: $GUILD_ID"
+    DCE_CMD="./DiscordChatExporter.Cli exportguild"
+    DCE_CMD="$DCE_CMD --token \"$DISCORD_TOKEN\""
+    DCE_CMD="$DCE_CMD --format \"$EXPORT_FORMAT\""
+    DCE_CMD="$DCE_CMD --output \"/output\""
     DCE_CMD="$DCE_CMD --guild \"$GUILD_ID\""
+    DCE_CMD="$DCE_CMD --include-threads"
 elif [ "$SCOPE" = "channel" ]; then
     if [ -z "${CHANNEL_ID:-}" ]; then
         echo "Error: CHANNEL_ID required for channel scope"
         exit 1
     fi
+    echo "Using export command for channel: $CHANNEL_ID"
+    DCE_CMD="./DiscordChatExporter.Cli export"
+    DCE_CMD="$DCE_CMD --token \"$DISCORD_TOKEN\""
+    DCE_CMD="$DCE_CMD --format \"$EXPORT_FORMAT\""
+    DCE_CMD="$DCE_CMD --output \"/output\""
     DCE_CMD="$DCE_CMD --channel \"$CHANNEL_ID\""
 else
     echo "Error: Unknown scope: $SCOPE"
