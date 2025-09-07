@@ -53,9 +53,20 @@ if [ -n "${BEFORE_TS:-}" ]; then
     DCE_CMD="$DCE_CMD --before \"$BEFORE_TS\""
 fi
 
+# Check if DiscordChatExporter exists
+cd /app
+echo "Contents of /app:"
+ls -la
+
+if [ ! -f "DiscordChatExporter.Cli" ]; then
+    echo "Error: DiscordChatExporter.Cli not found!"
+    echo "Available files:"
+    find . -name "*DiscordChatExporter*" -o -name "*Cli*"
+    exit 1
+fi
+
 # Run export
 echo "Running: $DCE_CMD"
-cd /app
 eval "$DCE_CMD"
 
 # Upload to archive if configured
