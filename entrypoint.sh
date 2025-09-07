@@ -2,7 +2,7 @@
 set -eu
 
 echo "=== DiscordChatExporter Container ==="
-echo "DISCORD_TOKEN: ${DISCORD_TOKEN:0:10}..."
+echo "DISCORD_TOKEN: [REDACTED]"
 echo "GUILD_ID: ${GUILD_ID:-'not set'}"
 echo "CHANNEL_ID: ${CHANNEL_ID:-'not set'}"
 echo "SCOPE: ${SCOPE:-'guild'}"
