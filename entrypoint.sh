@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail
+set -eu
 
 echo "=== DiscordChatExporter Container ==="
 echo "DISCORD_TOKEN: ${DISCORD_TOKEN:0:10}..."
