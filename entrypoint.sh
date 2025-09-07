@@ -16,6 +16,13 @@ if [ -n "${RCLONE_CONFIG:-}" ]; then
     echo "Configuring rclone..."
     mkdir -p ~/.config/rclone
     echo "$RCLONE_CONFIG" > ~/.config/rclone/rclone.conf
+    
+    echo "Rclone config file contents:"
+    cat ~/.config/rclone/rclone.conf
+    
+    echo "Testing rclone configuration..."
+    rclone config show || echo "Warning: rclone config show failed"
+    rclone listremotes || echo "Warning: rclone listremotes failed"
 else
     echo "Warning: No RCLONE_CONFIG provided - uploads will fail"
 fi
