@@ -1,21 +1,14 @@
-FROM mcr.microsoft.com/dotnet/runtime:6.0-alpine
-
-# Install dependencies
-RUN apk add --no-cache curl rclone unzip
-
-# Download DiscordChatExporter
+FROM mcr.microsoft.com/dotnet/runtime-deps:8.0
 WORKDIR /app
-RUN curl -Lo DiscordChatExporter.Cli.zip "https://github.com/Tyrrrz/DiscordChatExporter/releases/latest/download/DiscordChatExporter.Cli.linux-x64.zip" \
-    && unzip DiscordChatExporter.Cli.zip \
-    && rm DiscordChatExporter.Cli.zip \
-    && ls -la \
-    && chmod +x DiscordChatExporter.Cli
 
-# Create output directory
-RUN mkdir -p /output
+RUN apt-get update && apt-get install -y curl unzip ca-certificates && \
+    curl -L https://github.com/Tyrrrz/DiscordChatExporter/releases/latest/download/DiscordChatExporter.Cli.linux-x64.zip -o dce.zip && \
+    unzip dce.zip && \
+    chmod +x DiscordChatExporter.Cli && \
+    rm dce.zip && \
+    curl -L https://downloads.rclone.org/rclone-current-linux-amd64.zip -o rclone.zip && \
+    unzip rclone.zip && mv rclone-*-linux-amd64/rclone /usr/local/bin/ && rm -rf rclone*
 
-# Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
+ADD entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+ENTRYPOINT ["/app/entrypoint.sh"]
