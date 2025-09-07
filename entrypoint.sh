@@ -26,8 +26,17 @@ if [ -n "${RCLONE_CONFIG:-}" ]; then
     ls -la /root/.config/rclone/
     
     echo "Testing rclone configuration..."
-    rclone config show || echo "Warning: rclone config show failed"
-    rclone listremotes || echo "Warning: rclone listremotes failed"
+    if ! rclone --config /root/.config/rclone/rclone.conf config show; then
+        echo "Error: rclone config show failed - invalid configuration"
+        exit 1
+    fi
+    
+    if ! rclone --config /root/.config/rclone/rclone.conf listremotes; then
+        echo "Error: rclone listremotes failed - no remotes configured"
+        exit 1
+    fi
+    
+    echo "✓ Rclone configuration validated successfully"
 else
     echo "Warning: No RCLONE_CONFIG provided - uploads will fail"
 fi
@@ -107,7 +116,7 @@ eval "$DCE_CMD"
 # Upload to archive if configured
 if [ -n "${ARCHIVE_URI:-}" ] && [ -n "${RCLONE_CONFIG:-}" ]; then
     echo "Uploading to: $ARCHIVE_URI"
-    rclone copy /output "$ARCHIVE_URI" --progress
+    rclone --config /root/.config/rclone/rclone.conf copy /output "$ARCHIVE_URI" --progress
     echo "✓ Upload completed"
 else
     echo "Skipping upload - no archive URI or rclone config"
