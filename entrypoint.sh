@@ -15,11 +15,15 @@ echo "BEFORE_TS: ${BEFORE_TS:-'not set'}"
 if [ -n "${RCLONE_CONFIG:-}" ]; then
     echo "Configuring rclone..."
     export HOME=/root
+    export RCLONE_CONFIG_DIR=/root/.config/rclone
     mkdir -p /root/.config/rclone
     echo "$RCLONE_CONFIG" > /root/.config/rclone/rclone.conf
     
     echo "Rclone config file contents:"
     cat /root/.config/rclone/rclone.conf
+    
+    echo "Config file path check:"
+    ls -la /root/.config/rclone/
     
     echo "Testing rclone configuration..."
     rclone config show || echo "Warning: rclone config show failed"
