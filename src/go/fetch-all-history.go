@@ -340,6 +340,7 @@ func uploadToB2(cfg *Config, data []byte, filename string) error {
 			cfg.Storage.B2.ApplicationKey,
 			"",
 		)),
+		config.WithRegion("us-west-000"), // B2 uses this region for S3 compatibility
 	)
 	if err != nil {
 		return fmt.Errorf("failed to load AWS config: %w", err)
