@@ -398,7 +398,7 @@ func outputMessages(messages []MessageInfo, format string, cfg *Config, startDat
 			filename := generateFilename(cfg, "json", startDate, endDate, channels)
 			err = uploadToB2(cfg, jsonData, filename)
 			if err != nil {
-				log.Printf("Warning: Failed to upload to B2: %v", err)
+				return fmt.Errorf("failed to upload JSON to B2: %w", err)
 			}
 		}
 
@@ -442,7 +442,7 @@ func outputMessages(messages []MessageInfo, format string, cfg *Config, startDat
 			filename := generateFilename(cfg, "csv", startDate, endDate, channels)
 			err := uploadToB2(cfg, csvBuffer.Bytes(), filename)
 			if err != nil {
-				log.Printf("Warning: Failed to upload to B2: %v", err)
+				return fmt.Errorf("failed to upload CSV to B2: %w", err)
 			}
 		}
 
