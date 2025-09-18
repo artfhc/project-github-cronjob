@@ -127,7 +127,7 @@ func main() {
 
 	// Initialize API provider
 	apiProvider := provider.New()
-	err := apiProvider.RefreshUsers(context.Background())
+	err = apiProvider.RefreshUsers(context.Background())
 	if err != nil {
 		log.Fatalf("Failed to refresh users: %v", err)
 	}
