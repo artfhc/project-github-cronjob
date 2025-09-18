@@ -206,6 +206,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to output messages: %v", err)
 	}
+
+	// Final summary
+	log.Printf("📊 SUMMARY: Processed %d channels and fetched %d total messages", len(channels_list), len(allMessages))
 }
 
 func fetchSpecificChannels(apiProvider *provider.ApiProvider, channelNames []string, oldest, latest string, limit int, output string, cfg *Config, startDate, endDate, channels string) error {
@@ -241,7 +244,13 @@ func fetchSpecificChannels(apiProvider *provider.ApiProvider, channelNames []str
 	}
 
 	log.Printf("Total messages collected from specific channels: %d", len(allMessages))
-	return outputMessages(allMessages, output, cfg, startDate, endDate, channels)
+	
+	err := outputMessages(allMessages, output, cfg, startDate, endDate, channels)
+	if err == nil {
+		// Final summary for specific channels
+		log.Printf("📊 SUMMARY: Processed %d specific channels and fetched %d total messages", len(channelNames), len(allMessages))
+	}
+	return err
 }
 
 // loadConfig loads and parses the YAML configuration file with environment variable expansion

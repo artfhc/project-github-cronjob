@@ -18,7 +18,7 @@ slack:
 
 # Default fetch settings (can be overridden by command line flags)
 defaults:
-  limit_per_channel: 100
+  limit_per_channel: 0
   output_format: "json"  # console, json, csv
   channels_filter: "all"  # all, public, private
   

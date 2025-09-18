@@ -16,12 +16,12 @@ on:
       limit_per_channel:
         description: 'Maximum messages per channel'
         required: false
-        default: '100'
+        default: '0'
         type: string
       output_format:
         description: 'Output format'
         required: false
-        default: 'console'
+        default: 'json'
         type: choice
         options:
         - console
