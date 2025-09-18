@@ -12,9 +12,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/korotovsky/slack-mcp-server/pkg/limiter"
-	"github.com/korotovsky/slack-mcp-server/pkg/provider/edge"
-	"github.com/korotovsky/slack-mcp-server/pkg/transport"
+	"github.com/arthurfung/project-github-cronjob/pkg/limiter"
+	"github.com/arthurfung/project-github-cronjob/pkg/provider/edge"
+	"github.com/arthurfung/project-github-cronjob/pkg/transport"
 	slack2 "github.com/rusq/slack"
 	"github.com/rusq/slackdump/v3/auth"
 	"github.com/slack-go/slack"
@@ -499,6 +499,60 @@ func provideHTTPClient(cookies []*http.Cookie) *http.Client {
 	}
 
 	return client
+}
+
+// GetChannelsList returns channels filtered by types with pagination support
+func (ap *ApiProvider) GetChannelsList(ctx context.Context, channelTypes []string, limit int, cursor, sortBy string) ([]Channel, error) {
+	err := ap.RefreshChannels(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ap.GetChannels(ctx, channelTypes), nil
+}
+
+// Message represents a Slack message
+type Message struct {
+	Timestamp string `json:"ts"`
+	UserID    string `json:"user"`
+	Text      string `json:"text"`
+}
+
+// GetConversationHistory retrieves message history for a channel
+func (ap *ApiProvider) GetConversationHistory(ctx context.Context, channelID string, limit int, oldest, latest, cursor string, inclusive bool) ([]Message, error) {
+	client, err := ap.ProvideGeneric()
+	if err != nil {
+		return nil, err
+	}
+
+	params := &slack.GetConversationHistoryParameters{
+		ChannelID: channelID,
+		Limit:     limit,
+		Cursor:    cursor,
+		Inclusive: inclusive,
+	}
+	
+	if oldest != "" {
+		params.Oldest = oldest
+	}
+	if latest != "" {
+		params.Latest = latest
+	}
+
+	historyResponse, err := client.GetConversationHistoryContext(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	var messages []Message
+	for _, msg := range historyResponse.Messages {
+		messages = append(messages, Message{
+			Timestamp: msg.Timestamp,
+			UserID:    msg.User,
+			Text:      msg.Text,
+		})
+	}
+
+	return messages, nil
 }
 
 func mapChannel(

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gocarina/gocsv"
-	"github.com/korotovsky/slack-mcp-server/pkg/provider"
+	"github.com/arthurfung/project-github-cronjob/pkg/provider"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"runtime/trace"
 
-	"github.com/korotovsky/slack-mcp-server/pkg/limiter"
+	"github.com/arthurfung/project-github-cronjob/pkg/limiter"
 )
 
 // im.* API

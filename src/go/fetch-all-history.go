@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/korotovsky/slack-mcp-server/pkg/provider"
+	"github.com/arthurfung/project-github-cronjob/pkg/provider"
 	"gopkg.in/yaml.v3"
 )
 
@@ -126,9 +126,14 @@ func main() {
 	}
 
 	// Initialize API provider
-	apiProvider, err := provider.NewApiProvider()
+	apiProvider := provider.New()
+	err := apiProvider.RefreshUsers(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to create API provider: %v", err)
+		log.Fatalf("Failed to refresh users: %v", err)
+	}
+	err = apiProvider.RefreshChannels(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to refresh channels: %v", err)
 	}
 
 	log.Printf("Fetching conversation history...")
@@ -159,10 +164,7 @@ func main() {
 
 	// Fetch channels
 	log.Printf("Fetching channels of types: %v", channelTypes)
-	channels_list, err := apiProvider.GetChannelsList(context.Background(), channelTypes, 1000, "", "popularity")
-	if err != nil {
-		log.Fatalf("Failed to get channels list: %v", err)
-	}
+	channels_list := apiProvider.GetChannels(context.Background(), channelTypes)
 
 	log.Printf("Found %d channels", len(channels_list))
 

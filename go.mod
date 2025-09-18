@@ -1,4 +1,4 @@
-module github.com/korotovsky/slack-mcp-server
+module github.com/arthurfung/project-github-cronjob
 
 go 1.24.4
 
