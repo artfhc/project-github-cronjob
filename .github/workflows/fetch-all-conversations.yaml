@@ -82,15 +82,18 @@ jobs:
         run: |
           missing_secrets=()
           
-          if [ -z "${{ secrets.SLACK_MCP_XOXC_TOKEN }}" ]; then
-            missing_secrets+=("SLACK_MCP_XOXC_TOKEN")
-          fi
-          if [ -z "${{ secrets.SLACK_MCP_XOXD_TOKEN }}" ]; then
-            missing_secrets+=("SLACK_MCP_XOXD_TOKEN")
-          fi
+          # Check Slack authentication - either XOXP token OR both XOXC and XOXD tokens
           if [ -z "${{ secrets.SLACK_MCP_XOXP_TOKEN }}" ]; then
-            missing_secrets+=("SLACK_MCP_XOXP_TOKEN")
+            # If no XOXP token, check for XOXC and XOXD
+            if [ -z "${{ secrets.SLACK_MCP_XOXC_TOKEN }}" ]; then
+              missing_secrets+=("SLACK_MCP_XOXC_TOKEN (required when SLACK_MCP_XOXP_TOKEN is not provided)")
+            fi
+            if [ -z "${{ secrets.SLACK_MCP_XOXD_TOKEN }}" ]; then
+              missing_secrets+=("SLACK_MCP_XOXD_TOKEN (required when SLACK_MCP_XOXP_TOKEN is not provided)")
+            fi
           fi
+          
+          # Check B2 secrets
           if [ -z "${{ secrets.B2_SLACK_KEY_ID }}" ]; then
             missing_secrets+=("B2_SLACK_KEY_ID")
           fi
@@ -107,11 +110,21 @@ jobs:
               echo "  - $secret"
             done
             echo ""
+            echo "Slack authentication options:"
+            echo "  Option 1: SLACK_MCP_XOXP_TOKEN (User OAuth)"
+            echo "  Option 2: Both SLACK_MCP_XOXC_TOKEN and SLACK_MCP_XOXD_TOKEN (session-based)"
+            echo ""
             echo "Please add these secrets in your repository settings:"
             echo "Settings > Secrets and variables > Actions > Repository secrets"
             exit 1
           fi
           
+          # Show which Slack auth method is being used
+          if [ -n "${{ secrets.SLACK_MCP_XOXP_TOKEN }}" ]; then
+            echo "✅ Using SLACK_MCP_XOXP_TOKEN authentication"
+          else
+            echo "✅ Using SLACK_MCP_XOXC_TOKEN + SLACK_MCP_XOXD_TOKEN authentication"
+          fi
           echo "✅ All required secrets are present"
 
       - name: Fetch conversation history
