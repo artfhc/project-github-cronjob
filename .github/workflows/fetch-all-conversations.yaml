@@ -78,6 +78,42 @@ jobs:
             echo "channels=${{ github.event.inputs.channels_filter }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Validate required secrets
+        run: |
+          missing_secrets=()
+          
+          if [ -z "${{ secrets.SLACK_MCP_XOXC_TOKEN }}" ]; then
+            missing_secrets+=("SLACK_MCP_XOXC_TOKEN")
+          fi
+          if [ -z "${{ secrets.SLACK_MCP_XOXD_TOKEN }}" ]; then
+            missing_secrets+=("SLACK_MCP_XOXD_TOKEN")
+          fi
+          if [ -z "${{ secrets.SLACK_MCP_XOXP_TOKEN }}" ]; then
+            missing_secrets+=("SLACK_MCP_XOXP_TOKEN")
+          fi
+          if [ -z "${{ secrets.B2_SLACK_KEY_ID }}" ]; then
+            missing_secrets+=("B2_SLACK_KEY_ID")
+          fi
+          if [ -z "${{ secrets.B2_SLACK_APP_KEY }}" ]; then
+            missing_secrets+=("B2_SLACK_APP_KEY")
+          fi
+          if [ -z "${{ secrets.B2_SLACK_BUCKET_NAME }}" ]; then
+            missing_secrets+=("B2_SLACK_BUCKET_NAME")
+          fi
+          
+          if [ ${#missing_secrets[@]} -gt 0 ]; then
+            echo "❌ Missing required secrets:"
+            for secret in "${missing_secrets[@]}"; do
+              echo "  - $secret"
+            done
+            echo ""
+            echo "Please add these secrets in your repository settings:"
+            echo "Settings > Secrets and variables > Actions > Repository secrets"
+            exit 1
+          fi
+          
+          echo "✅ All required secrets are present"
+
       - name: Fetch conversation history
         env:
           SLACK_MCP_XOXC_TOKEN: ${{ secrets.SLACK_MCP_XOXC_TOKEN }}
