@@ -83,8 +83,8 @@ jobs:
           SLACK_MCP_XOXC_TOKEN: ${{ secrets.SLACK_MCP_XOXC_TOKEN }}
           SLACK_MCP_XOXD_TOKEN: ${{ secrets.SLACK_MCP_XOXD_TOKEN }}
           SLACK_MCP_XOXP_TOKEN: ${{ secrets.SLACK_MCP_XOXP_TOKEN }}
-          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
-          B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
+          B2_SLACK_KEY_ID: ${{ secrets.B2_SLACK_KEY_ID }}
+          B2_SLACK_APP_KEY: ${{ secrets.B2_SLACK_APP_KEY }}
           B2_SLACK_BUCKET_NAME: ${{ secrets.B2_SLACK_BUCKET_NAME }}
         run: |
           echo "Fetching conversation history with parameters:"
