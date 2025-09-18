@@ -135,6 +135,7 @@ jobs:
           B2_SLACK_KEY_ID: ${{ secrets.B2_SLACK_KEY_ID }}
           B2_SLACK_APP_KEY: ${{ secrets.B2_SLACK_APP_KEY }}
           B2_SLACK_BUCKET_NAME: ${{ secrets.B2_SLACK_BUCKET_NAME }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
         run: |
           echo "Fetching conversation history with parameters:"
           echo "  Start date: ${{ github.event.inputs.start_date }}"

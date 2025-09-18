@@ -7,8 +7,9 @@ storage:
     application_key: "${B2_SLACK_APP_KEY}"
     # Optional: specify a subdirectory in the bucket
     path_prefix: "slack-conversations/"
-    # Optional: endpoint for B2-compatible services (leave empty for Backblaze B2)
-    endpoint: ""
+    # B2 S3-compatible endpoint - usually s3.us-west-<region>.backblazeb2.com
+    # Check your B2 bucket details for the correct endpoint
+    endpoint: "${B2_ENDPOINT:-https://s3.us-west-004.backblazeb2.com}"
 
 slack:
   # Slack tokens - these will be read from environment variables

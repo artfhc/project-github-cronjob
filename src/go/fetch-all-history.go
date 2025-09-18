@@ -333,6 +333,14 @@ func uploadToB2(cfg *Config, data []byte, filename string) error {
 		return nil // Skip if not B2 storage
 	}
 
+	// Debug logging (without exposing sensitive values)
+	log.Printf("B2 Upload Debug:")
+	log.Printf("  Bucket: %s", cfg.Storage.B2.BucketName)
+	log.Printf("  Key ID length: %d", len(cfg.Storage.B2.ApplicationKeyID))
+	log.Printf("  App Key length: %d", len(cfg.Storage.B2.ApplicationKey))
+	log.Printf("  Endpoint: %s", cfg.Storage.B2.Endpoint)
+	log.Printf("  Path prefix: %s", cfg.Storage.B2.PathPrefix)
+
 	// Configure AWS SDK for B2
 	awsCfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
