@@ -1,0 +1,34 @@
+# Configuration for Slack conversation fetcher with B2 storage
+storage:
+  type: "b2"  # Options: "local", "b2"
+  b2:
+    bucket_name: "${B2_SLACK_BUCKET_NAME}"
+    application_key_id: "${B2_KEY_ID}"
+    application_key: "${B2_APP_KEY}"
+    # Optional: specify a subdirectory in the bucket
+    path_prefix: "slack-conversations/"
+    # Optional: endpoint for B2-compatible services (leave empty for Backblaze B2)
+    endpoint: ""
+
+slack:
+  # Slack tokens - these will be read from environment variables
+  xoxc_token: "${SLACK_MCP_XOXC_TOKEN}"
+  xoxd_token: "${SLACK_MCP_XOXD_TOKEN}"
+  xoxp_token: "${SLACK_MCP_XOXP_TOKEN}"
+
+# Default fetch settings (can be overridden by command line flags)
+defaults:
+  limit_per_channel: 100
+  output_format: "json"  # console, json, csv
+  channels_filter: "all"  # all, public, private
+  
+# File naming configuration
+file_naming:
+  # Include timestamp in filename
+  include_timestamp: true
+  # Include date range in filename
+  include_date_range: true
+  # Include channels filter in filename
+  include_channels: true
+  # Custom prefix for filenames
+  prefix: "conversations"
