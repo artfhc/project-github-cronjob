@@ -61,6 +61,50 @@ global_settings:
 - Uploads to B2 with timestamped directories: `bucket/YYYYMMDD_HHMMSS/`
 - Scheduled: Daily at 09:00 UTC
 
+## Slack Conversation Workflow
+
+Fetches Slack conversation history and uploads to Backblaze B2.
+
+### Configuration: `slack-conversation-config.yaml`
+
+```yaml
+storage:
+  type: "b2"
+  b2:
+    bucket_name: "${B2_SLACK_BUCKET_NAME}"
+    application_key_id: "${B2_SLACK_KEY_ID}"
+    application_key: "${B2_SLACK_APP_KEY}"
+    path_prefix: "slack-conversations/"
+    endpoint: "${B2_SLACK_ENDPOINT}"
+
+slack:
+  xoxc_token: "${SLACK_MCP_XOXC_TOKEN}"
+  xoxd_token: "${SLACK_MCP_XOXD_TOKEN}"
+  xoxp_token: "${SLACK_MCP_XOXP_TOKEN}"
+
+defaults:
+  limit_per_channel: 0      # 0 = unlimited messages
+  output_format: "json"     # console, json, csv
+  channels_filter: "all"    # all, public, private
+  past_days: 7             # Fetch last N days (0 = all history)
+
+file_naming:
+  include_timestamp: true
+  include_date_range: true
+  include_channels: true
+  prefix: "conversations"
+```
+
+### Workflow: `.github/workflows/fetch_slack_conversations.yaml`
+
+- Built with Go application for efficient Slack API usage
+- Supports multiple authentication methods (XOXP or XOXC+XOXD tokens)
+- Fetches from all channels (public, private, DMs, group messages)
+- Configurable date ranges and message limits
+- Automatic B2 upload with organized file naming
+- Scheduled: Weekly on Saturday at 2:00 AM UTC
+- Manual trigger available with custom parameters
+
 ## GitHub Secrets
 
 **B2 Storage:**
@@ -76,3 +120,12 @@ global_settings:
 - `GUILD_ID`: Discord server ID
 - `ARCHIVE_URI`: B2 destination (e.g. `b2:bucket/path`)
 - `RCLONE_CONFIG`: Rclone configuration for B2
+
+**Slack Conversations:**
+- `SLACK_MCP_XOXC_TOKEN`: Slack session cookie token (session-based auth)
+- `SLACK_MCP_XOXD_TOKEN`: Slack session token (session-based auth)
+- `SLACK_MCP_XOXP_TOKEN`: Slack OAuth token (alternative to session-based)
+- `B2_SLACK_KEY_ID`: B2 Application Key ID for Slack bucket
+- `B2_SLACK_APP_KEY`: B2 Application Key for Slack bucket
+- `B2_SLACK_BUCKET_NAME`: B2 bucket name for Slack data
+- `B2_SLACK_ENDPOINT`: B2 S3-compatible endpoint (e.g. `https://s3.us-west-004.backblazeb2.com`)

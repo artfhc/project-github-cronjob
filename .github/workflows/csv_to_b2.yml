@@ -141,7 +141,7 @@ jobs:
           
           if [[ "$FIX_CSV" == "true" ]]; then
             # Build fix_csv.py command with conditional flags
-            FIX_CMD="python3 fix_csv.py \"$RAW_FILE\" -o \"$PROCESSED_FILE\""
+            FIX_CMD="python3 src/py/fix_csv.py \"$RAW_FILE\" -o \"$PROCESSED_FILE\""
             
             if [[ "$VALIDATE_CSV" == "true" ]]; then
               FIX_CMD="$FIX_CMD --validate"
