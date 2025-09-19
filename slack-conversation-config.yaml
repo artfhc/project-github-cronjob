@@ -22,6 +22,8 @@ defaults:
   limit_per_channel: 0
   output_format: "json"  # console, json, csv
   channels_filter: "all"  # all, public, private
+  # Fetch messages from past N days (0 = all history, overrides start/end dates if > 0)
+  past_days: 7
   
 # File naming configuration
 file_naming:

@@ -68,6 +68,7 @@ type DefaultsConfig struct {
 	LimitPerChannel int    `yaml:"limit_per_channel"`
 	OutputFormat    string `yaml:"output_format"`
 	ChannelsFilter  string `yaml:"channels_filter"`
+	PastDays        int    `yaml:"past_days"`
 }
 
 type FileNamingConfig struct {
@@ -103,6 +104,15 @@ func main() {
 	}
 	if *channels == "" {
 		*channels = cfg.Defaults.ChannelsFilter
+	}
+
+	// Handle past_days configuration (overrides start/end dates if > 0)
+	if cfg.Defaults.PastDays > 0 && *startDate == "" && *endDate == "" {
+		now := time.Now()
+		startTime := now.AddDate(0, 0, -cfg.Defaults.PastDays)
+		*startDate = startTime.Format("2006-01-02")
+		*endDate = now.Format("2006-01-02")
+		log.Printf("Using past_days config: fetching last %d days (%s to %s)", cfg.Defaults.PastDays, *startDate, *endDate)
 	}
 
 	// Parse date range

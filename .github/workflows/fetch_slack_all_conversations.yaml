@@ -1,0 +1,190 @@
+name: Fetch All Slack Conversations History
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Start date (YYYY-MM-DD)'
+        required: false
+        default: ''
+        type: string
+      end_date:
+        description: 'End date (YYYY-MM-DD)'
+        required: false
+        default: ''
+        type: string
+      limit_per_channel:
+        description: 'Maximum messages per channel'
+        required: false
+        default: '0'
+        type: string
+      output_format:
+        description: 'Output format'
+        required: false
+        default: 'json'
+        type: choice
+        options:
+        - console
+        - json
+        - csv
+      channels_filter:
+        description: 'Channels to fetch'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - public
+        - private
+      specific_channels:
+        description: 'Specific channels (comma-separated, overrides channels_filter)'
+        required: false
+        default: ''
+        type: string
+
+env:
+  GO_VERSION: 1.23
+
+jobs:
+  fetch-conversations:
+    name: Fetch Conversations History
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          go mod tidy
+          go mod download
+
+      - name: Build fetch-all-history tool
+        run: |
+          echo "Building fetch-all-history tool..."
+          go build -o ./build/fetch-all-history ./src/go/fetch-all-history.go
+
+      - name: Determine channels parameter
+        id: channels
+        run: |
+          if [ -n "${{ github.event.inputs.specific_channels }}" ]; then
+            echo "channels=${{ github.event.inputs.specific_channels }}" >> $GITHUB_OUTPUT
+          else
+            echo "channels=${{ github.event.inputs.channels_filter }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate required secrets
+        run: |
+          missing_secrets=()
+          
+          # Check Slack authentication - either XOXP token OR both XOXC and XOXD tokens
+          if [ -z "${{ secrets.SLACK_MCP_XOXP_TOKEN }}" ]; then
+            # If no XOXP token, check for XOXC and XOXD
+            if [ -z "${{ secrets.SLACK_MCP_XOXC_TOKEN }}" ]; then
+              missing_secrets+=("SLACK_MCP_XOXC_TOKEN (required when SLACK_MCP_XOXP_TOKEN is not provided)")
+            fi
+            if [ -z "${{ secrets.SLACK_MCP_XOXD_TOKEN }}" ]; then
+              missing_secrets+=("SLACK_MCP_XOXD_TOKEN (required when SLACK_MCP_XOXP_TOKEN is not provided)")
+            fi
+          fi
+          
+          # Check B2 secrets
+          if [ -z "${{ secrets.B2_SLACK_KEY_ID }}" ]; then
+            missing_secrets+=("B2_SLACK_KEY_ID")
+          fi
+          if [ -z "${{ secrets.B2_SLACK_APP_KEY }}" ]; then
+            missing_secrets+=("B2_SLACK_APP_KEY")
+          fi
+          if [ -z "${{ secrets.B2_SLACK_BUCKET_NAME }}" ]; then
+            missing_secrets+=("B2_SLACK_BUCKET_NAME")
+          fi
+          if [ -z "${{ secrets.B2_SLACK_ENDPOINT }}" ]; then
+            missing_secrets+=("B2_SLACK_ENDPOINT")
+          fi
+          
+          if [ ${#missing_secrets[@]} -gt 0 ]; then
+            echo "❌ Missing required secrets:"
+            for secret in "${missing_secrets[@]}"; do
+              echo "  - $secret"
+            done
+            echo ""
+            echo "Slack authentication options:"
+            echo "  Option 1: SLACK_MCP_XOXP_TOKEN (User OAuth)"
+            echo "  Option 2: Both SLACK_MCP_XOXC_TOKEN and SLACK_MCP_XOXD_TOKEN (session-based)"
+            echo ""
+            echo "Please add these secrets in your repository settings:"
+            echo "Settings > Secrets and variables > Actions > Repository secrets"
+            exit 1
+          fi
+          
+          # Show which Slack auth method is being used
+          if [ -n "${{ secrets.SLACK_MCP_XOXP_TOKEN }}" ]; then
+            echo "✅ Using SLACK_MCP_XOXP_TOKEN authentication"
+          else
+            echo "✅ Using SLACK_MCP_XOXC_TOKEN + SLACK_MCP_XOXD_TOKEN authentication"
+          fi
+          echo "✅ All required secrets are present"
+
+      - name: Fetch conversation history
+        env:
+          SLACK_MCP_XOXC_TOKEN: ${{ secrets.SLACK_MCP_XOXC_TOKEN }}
+          SLACK_MCP_XOXD_TOKEN: ${{ secrets.SLACK_MCP_XOXD_TOKEN }}
+          SLACK_MCP_XOXP_TOKEN: ${{ secrets.SLACK_MCP_XOXP_TOKEN }}
+          B2_SLACK_KEY_ID: ${{ secrets.B2_SLACK_KEY_ID }}
+          B2_SLACK_APP_KEY: ${{ secrets.B2_SLACK_APP_KEY }}
+          B2_SLACK_BUCKET_NAME: ${{ secrets.B2_SLACK_BUCKET_NAME }}
+          B2_SLACK_ENDPOINT: ${{ secrets.B2_SLACK_ENDPOINT }}
+        run: |
+          echo "Fetching conversation history with parameters:"
+          echo "  Start date: ${{ github.event.inputs.start_date }}"
+          echo "  End date: ${{ github.event.inputs.end_date }}"
+          echo "  Limit per channel: ${{ github.event.inputs.limit_per_channel }}"
+          echo "  Output format: ${{ github.event.inputs.output_format }}"
+          echo "  Channels: ${{ steps.channels.outputs.channels }}"
+          echo ""
+          
+          # Build command with optional parameters
+          CMD="./build/fetch-all-history -config=slack-conversation-config.yaml"
+          
+          if [ -n "${{ github.event.inputs.start_date }}" ]; then
+            CMD="$CMD -start=${{ github.event.inputs.start_date }}"
+          fi
+          
+          if [ -n "${{ github.event.inputs.end_date }}" ]; then
+            CMD="$CMD -end=${{ github.event.inputs.end_date }}"
+          fi
+          
+          CMD="$CMD -limit=${{ github.event.inputs.limit_per_channel }}"
+          CMD="$CMD -output=${{ github.event.inputs.output_format }}"
+          CMD="$CMD -channels='${{ steps.channels.outputs.channels }}'"
+          
+          echo "Executing: $CMD"
+          eval $CMD
+
+      - name: Upload to B2 (JSON/CSV only)
+        if: github.event.inputs.output_format != 'console'
+        run: |
+          echo "Files are automatically uploaded to B2 bucket via the application."
+          echo "Check your configured B2 bucket for the output files."
+
+      - name: Display summary
+        run: |
+          echo "✅ Conversation history fetch completed!"
+          echo ""
+          echo "Parameters used:"
+          echo "  📅 Start date: ${{ github.event.inputs.start_date || 'Not specified' }}"
+          echo "  📅 End date: ${{ github.event.inputs.end_date || 'Not specified' }}"
+          echo "  📊 Limit per channel: ${{ github.event.inputs.limit_per_channel }}"
+          echo "  📄 Output format: ${{ github.event.inputs.output_format }}"
+          echo "  📺 Channels: ${{ steps.channels.outputs.channels }}"
+          echo ""
+          if [ "${{ github.event.inputs.output_format }}" != "console" ]; then
+            echo "☁️ Output file has been uploaded to your configured B2 bucket."
+          else
+            echo "📝 Output was displayed in the console above."
+          fi

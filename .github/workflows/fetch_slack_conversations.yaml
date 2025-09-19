@@ -1,6 +1,9 @@
-name: Fetch All Conversations History
+name: Fetch Weekly Slack Conversations History
 
 on:
+  schedule:
+    # Run every Saturday at 2:00 AM UTC (cron: minute hour day-of-month month day-of-week)
+    - cron: '0 2 * * 6'
   workflow_dispatch:
     inputs:
       start_date:
