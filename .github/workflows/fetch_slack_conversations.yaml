@@ -72,13 +72,28 @@ jobs:
           echo "Building fetch-all-history tool..."
           go build -o ./build/fetch-all-history ./src/go/fetch-all-history.go
 
-      - name: Determine channels parameter
-        id: channels
+      - name: Set parameters with defaults
+        id: params
         run: |
-          if [ -n "${{ github.event.inputs.specific_channels }}" ]; then
-            echo "channels=${{ github.event.inputs.specific_channels }}" >> $GITHUB_OUTPUT
+          # Use config defaults when running on schedule (no inputs)
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "start_date=" >> $GITHUB_OUTPUT
+            echo "end_date=" >> $GITHUB_OUTPUT
+            echo "limit_per_channel=0" >> $GITHUB_OUTPUT
+            echo "output_format=json" >> $GITHUB_OUTPUT
+            echo "channels=all" >> $GITHUB_OUTPUT
           else
-            echo "channels=${{ github.event.inputs.channels_filter }}" >> $GITHUB_OUTPUT
+            # Use workflow inputs when manually triggered
+            echo "start_date=${{ github.event.inputs.start_date }}" >> $GITHUB_OUTPUT
+            echo "end_date=${{ github.event.inputs.end_date }}" >> $GITHUB_OUTPUT
+            echo "limit_per_channel=${{ github.event.inputs.limit_per_channel || '0' }}" >> $GITHUB_OUTPUT
+            echo "output_format=${{ github.event.inputs.output_format || 'json' }}" >> $GITHUB_OUTPUT
+            
+            if [ -n "${{ github.event.inputs.specific_channels }}" ]; then
+              echo "channels=${{ github.event.inputs.specific_channels }}" >> $GITHUB_OUTPUT
+            else
+              echo "channels=${{ github.event.inputs.channels_filter || 'all' }}" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Validate required secrets
@@ -144,33 +159,33 @@ jobs:
           B2_SLACK_ENDPOINT: ${{ secrets.B2_SLACK_ENDPOINT }}
         run: |
           echo "Fetching conversation history with parameters:"
-          echo "  Start date: ${{ github.event.inputs.start_date }}"
-          echo "  End date: ${{ github.event.inputs.end_date }}"
-          echo "  Limit per channel: ${{ github.event.inputs.limit_per_channel }}"
-          echo "  Output format: ${{ github.event.inputs.output_format }}"
-          echo "  Channels: ${{ steps.channels.outputs.channels }}"
+          echo "  Start date: ${{ steps.params.outputs.start_date }}"
+          echo "  End date: ${{ steps.params.outputs.end_date }}"
+          echo "  Limit per channel: ${{ steps.params.outputs.limit_per_channel }}"
+          echo "  Output format: ${{ steps.params.outputs.output_format }}"
+          echo "  Channels: ${{ steps.params.outputs.channels }}"
           echo ""
           
           # Build command with optional parameters
           CMD="./build/fetch-all-history -config=slack-conversation-config.yaml"
           
-          if [ -n "${{ github.event.inputs.start_date }}" ]; then
-            CMD="$CMD -start=${{ github.event.inputs.start_date }}"
+          if [ -n "${{ steps.params.outputs.start_date }}" ]; then
+            CMD="$CMD -start=${{ steps.params.outputs.start_date }}"
           fi
           
-          if [ -n "${{ github.event.inputs.end_date }}" ]; then
-            CMD="$CMD -end=${{ github.event.inputs.end_date }}"
+          if [ -n "${{ steps.params.outputs.end_date }}" ]; then
+            CMD="$CMD -end=${{ steps.params.outputs.end_date }}"
           fi
           
-          CMD="$CMD -limit=${{ github.event.inputs.limit_per_channel }}"
-          CMD="$CMD -output=${{ github.event.inputs.output_format }}"
-          CMD="$CMD -channels='${{ steps.channels.outputs.channels }}'"
+          CMD="$CMD -limit=${{ steps.params.outputs.limit_per_channel }}"
+          CMD="$CMD -output=${{ steps.params.outputs.output_format }}"
+          CMD="$CMD -channels='${{ steps.params.outputs.channels }}'"
           
           echo "Executing: $CMD"
           eval $CMD
 
       - name: Upload to B2 (JSON/CSV only)
-        if: github.event.inputs.output_format != 'console'
+        if: steps.params.outputs.output_format != 'console'
         run: |
           echo "Files are automatically uploaded to B2 bucket via the application."
           echo "Check your configured B2 bucket for the output files."
@@ -180,13 +195,13 @@ jobs:
           echo "✅ Conversation history fetch completed!"
           echo ""
           echo "Parameters used:"
-          echo "  📅 Start date: ${{ github.event.inputs.start_date || 'Not specified' }}"
-          echo "  📅 End date: ${{ github.event.inputs.end_date || 'Not specified' }}"
-          echo "  📊 Limit per channel: ${{ github.event.inputs.limit_per_channel }}"
-          echo "  📄 Output format: ${{ github.event.inputs.output_format }}"
-          echo "  📺 Channels: ${{ steps.channels.outputs.channels }}"
+          echo "  📅 Start date: ${{ steps.params.outputs.start_date || 'Auto (past 7 days)' }}"
+          echo "  📅 End date: ${{ steps.params.outputs.end_date || 'Auto (today)' }}"
+          echo "  📊 Limit per channel: ${{ steps.params.outputs.limit_per_channel }}"
+          echo "  📄 Output format: ${{ steps.params.outputs.output_format }}"
+          echo "  📺 Channels: ${{ steps.params.outputs.channels }}"
           echo ""
-          if [ "${{ github.event.inputs.output_format }}" != "console" ]; then
+          if [ "${{ steps.params.outputs.output_format }}" != "console" ]; then
             echo "☁️ Output file has been uploaded to your configured B2 bucket."
           else
             echo "📝 Output was displayed in the console above."
