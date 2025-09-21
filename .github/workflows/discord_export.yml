@@ -1,4 +1,4 @@
-name: Discord Chat Export
+name: Discord Chat Export to B2
 on:
   schedule:
     - cron: "0 9 * * *"   # runs every day at 09:00 UTC

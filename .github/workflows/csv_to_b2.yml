@@ -1,4 +1,4 @@
-name: Multi-CSV Download to B2
+name: Multi-CSV Export to B2
 
 on:
   schedule:
