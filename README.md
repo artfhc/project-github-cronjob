@@ -1,12 +1,31 @@
 # GitHub Cronjob Workflows
 
-Automated data collection workflows using GitHub Actions.
+Automated data collection workflows using GitHub Actions for CSV downloads, Discord exports, and Slack conversation archival to Backblaze B2 storage.
 
-## CSV Download Workflow
+## Table of Contents
 
-Downloads CSV files and uploads them to Backblaze B2.
+- [Workflows](#workflows)
+  - [CSV Download Workflow](#csv-download-workflow)
+  - [Discord Export Workflow](#discord-export-workflow)
+  - [Slack Conversation Workflow](#slack-conversation-workflow)
+- [Setup & Configuration](#setup--configuration)
+- [GitHub Secrets Reference](#github-secrets-reference)
+- [Usage](#usage)
 
-### Configuration: `download-config.json`
+## Workflows
+
+### CSV Download Workflow
+
+Downloads CSV files from configured URLs and uploads them to Backblaze B2 with automatic processing.
+
+**Workflow File:** `.github/workflows/csv_to_b2.yml`
+
+**Features:**
+- Parallel downloads from multiple configured URLs
+- CSV validation and newline fixing
+- Organized B2 uploads: `bucket/prefix/YYYY/MM/filename.csv`
+
+**Configuration:** `download-config.json`
 
 ```json
 {
@@ -23,18 +42,23 @@ Downloads CSV files and uploads them to Backblaze B2.
 }
 ```
 
-### Workflow: `.github/workflows/csv_to_b2.yml`
+---
 
-- Reads configuration from `download-config.json`
-- Downloads CSV files from configured URLs in parallel
-- Processes CSV files (fixes newlines, validates structure)
-- Uploads to B2 with path: `bucket/prefix/YYYY/MM/filename.csv`
+### Discord Export Workflow
 
-## Discord Export Workflow
+Exports Discord server chats using DiscordChatExporter and archives them to Backblaze B2.
 
-Exports Discord chats and uploads them to Backblaze B2.
+**Workflow File:** `.github/workflows/discord_export.yml`
 
-### Configuration: `discord-export-config.yml`
+**Features:**
+- Docker-based DiscordChatExporter
+- Guild and channel scope support
+- Flexible time range options
+- Timestamped B2 directories: `bucket/YYYYMMDD_HHMMSS/`
+
+**Schedule:** Daily at 09:00 UTC
+
+**Configuration:** `discord-export-config.yml`
 
 ```yaml
 exports:
@@ -53,19 +77,32 @@ global_settings:
   fail_fast: false
 ```
 
-### Workflow: `.github/workflows/discord_export.yml`
+**Time Range Options:**
+- `everything` - Full history
+- `today` - Today's messages
+- `yesterday` - Previous day
+- `last_24_hours` - Last 24 hours
+- `last_7_days` - Last week
+- `last_30_days` - Last month
 
-- Uses DiscordChatExporter in Docker container
-- Supports guild and channel scopes
-- Time range options: everything, today, yesterday, last_24_hours, last_7_days, last_30_days
-- Uploads to B2 with timestamped directories: `bucket/YYYYMMDD_HHMMSS/`
-- Scheduled: Daily at 09:00 UTC
+---
 
-## Slack Conversation Workflow
+### Slack Conversation Workflow
 
-Fetches Slack conversation history and uploads to Backblaze B2.
+Fetches Slack conversation history from all channels and uploads to Backblaze B2 using a Go-based application.
 
-### Configuration: `slack-conversation-config.yaml`
+**Workflow File:** `.github/workflows/fetch_slack_conversations.yaml`
+
+**Features:**
+- Efficient Go-based Slack API client
+- Multiple authentication methods (XOXP or XOXC+XOXD tokens)
+- All channel types: public, private, DMs, group messages
+- Configurable date ranges and message limits
+- Smart file naming with timestamps and date ranges
+
+**Schedule:** Weekly on Saturday at 2:00 AM UTC (manual trigger available)
+
+**Configuration:** `slack-conversation-config.yaml`
 
 ```yaml
 storage:
@@ -95,37 +132,85 @@ file_naming:
   prefix: "conversations"
 ```
 
-### Workflow: `.github/workflows/fetch_slack_conversations.yaml`
+## Setup & Configuration
 
-- Built with Go application for efficient Slack API usage
-- Supports multiple authentication methods (XOXP or XOXC+XOXD tokens)
-- Fetches from all channels (public, private, DMs, group messages)
-- Configurable date ranges and message limits
-- Automatic B2 upload with organized file naming
-- Scheduled: Weekly on Saturday at 2:00 AM UTC
-- Manual trigger available with custom parameters
+### 1. Configure Workflows
 
-## GitHub Secrets
+Create or edit the configuration files for each workflow you want to use:
+- `download-config.json` - CSV download settings
+- `discord-export-config.yml` - Discord export settings
+- `slack-conversation-config.yaml` - Slack conversation settings
 
-**B2 Storage:**
-- `B2_KEY_ID`: Backblaze B2 Key ID
-- `B2_APP_KEY`: Backblaze B2 Application Key
+### 2. Set Up GitHub Secrets
 
-**CSV Downloads:**
-- `SYMPHONY_CSV_URL`: CSV download URL
-- `SYMPHONY_B2_BUCKET`: B2 bucket name
+Add the required secrets to your GitHub repository:
+**Settings → Secrets and variables → Actions → New repository secret**
 
-**Discord Exports:**
-- `DISCORD_TOKEN`: Discord bot token
-- `GUILD_ID`: Discord server ID
-- `ARCHIVE_URI`: B2 destination (e.g. `b2:bucket/path`)
-- `RCLONE_CONFIG`: Rclone configuration for B2
+See [GitHub Secrets Reference](#github-secrets-reference) for the complete list.
 
-**Slack Conversations:**
-- `SLACK_MCP_XOXC_TOKEN`: Slack session cookie token (session-based auth)
-- `SLACK_MCP_XOXD_TOKEN`: Slack session token (session-based auth)
-- `SLACK_MCP_XOXP_TOKEN`: Slack OAuth token (alternative to session-based)
-- `B2_SLACK_KEY_ID`: B2 Application Key ID for Slack bucket
-- `B2_SLACK_APP_KEY`: B2 Application Key for Slack bucket
-- `B2_SLACK_BUCKET_NAME`: B2 bucket name for Slack data
-- `B2_SLACK_ENDPOINT`: B2 S3-compatible endpoint (e.g. `https://s3.us-west-004.backblazeb2.com`)
+### 3. Enable Workflows
+
+Workflows are located in `.github/workflows/` and will run automatically based on their schedules, or can be triggered manually via GitHub Actions.
+
+## GitHub Secrets Reference
+
+### B2 Storage (Common)
+
+Required for all workflows that upload to Backblaze B2:
+
+| Secret | Description |
+|--------|-------------|
+| `B2_KEY_ID` | Backblaze B2 Application Key ID |
+| `B2_APP_KEY` | Backblaze B2 Application Key |
+
+### CSV Download Workflow
+
+| Secret | Description |
+|--------|-------------|
+| `SYMPHONY_CSV_URL` | CSV file download URL |
+| `SYMPHONY_B2_BUCKET` | B2 bucket name for CSV storage |
+
+### Discord Export Workflow
+
+| Secret | Description |
+|--------|-------------|
+| `DISCORD_TOKEN` | Discord bot token |
+| `GUILD_ID` | Discord server/guild ID |
+| `ARCHIVE_URI` | B2 destination path (e.g., `b2:bucket/path`) |
+| `RCLONE_CONFIG` | Rclone configuration for B2 access |
+
+### Slack Conversation Workflow
+
+| Secret | Description |
+|--------|-------------|
+| `SLACK_MCP_XOXC_TOKEN` | Slack session cookie token (session-based auth) |
+| `SLACK_MCP_XOXD_TOKEN` | Slack session token (session-based auth) |
+| `SLACK_MCP_XOXP_TOKEN` | Slack OAuth token (alternative auth method) |
+| `B2_SLACK_KEY_ID` | B2 Application Key ID for Slack bucket |
+| `B2_SLACK_APP_KEY` | B2 Application Key for Slack bucket |
+| `B2_SLACK_BUCKET_NAME` | B2 bucket name for Slack data |
+| `B2_SLACK_ENDPOINT` | B2 S3-compatible endpoint (e.g., `https://s3.us-west-004.backblazeb2.com`) |
+
+## Usage
+
+### Manual Workflow Triggers
+
+To manually trigger a workflow:
+
+1. Go to **Actions** tab in your GitHub repository
+2. Select the workflow you want to run
+3. Click **Run workflow**
+4. Configure parameters (if available)
+5. Click **Run workflow** button
+
+### Monitoring
+
+- View workflow runs in the **Actions** tab
+- Check logs for detailed execution information
+- Failed workflows will send notifications based on repository settings
+
+### Scheduled Runs
+
+- **CSV Download:** As configured in workflow file
+- **Discord Export:** Daily at 09:00 UTC
+- **Slack Conversations:** Weekly on Saturday at 2:00 AM UTC
